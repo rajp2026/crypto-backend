@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -8,7 +8,8 @@ from app.schemas.auth_schema import (
     RegisterResponse,
     LogoutRequest,
     ForgotPasswordRequest,
-    ResetPasswordRequest
+    ResetPasswordRequest,
+    UserResponse
     )
 
 from app.services.auth_service import register_user, forgot_password
@@ -51,6 +52,7 @@ def register(
 @router.post("/login", response_model=LoginResponse)
 def login(
     data: LoginRequest,
+    response: Response,
     db: Session = Depends(get_db)
 ):
 
@@ -62,7 +64,16 @@ def login(
             password=data.password
         )
 
-        return tokens
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            httponly=True,
+            samesite="lax",
+            secure=False, # Use True in production with https
+            max_age=7 * 24 * 60 * 60
+        )
+
+        return {"access_token": tokens["access_token"], "refresh_token": "Cookie", "token_type": "bearer"}
 
     except ValueError as e:
 
@@ -73,15 +84,18 @@ def login(
 
 @router.post("/refresh", response_model=RefreshResponse)
 def refresh(
-    data: RefreshRequest,
+    refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)
 ):
+
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
 
         result = refresh_access_token(
             db=db,
-            refresh_token=data.refresh_token
+            refresh_token=refresh_token
         )
 
         return result
@@ -96,11 +110,14 @@ def refresh(
 
 @router.post("/logout")
 def logout(
-    data: LogoutRequest,
+    response: Response,
+    refresh_token: str | None = Cookie(None),
     db: Session = Depends(get_db)
 ):
 
-    logout_user(db, data.refresh_token)
+    if refresh_token:
+        logout_user(db, refresh_token)
+        response.delete_cookie("refresh_token")
 
     return {"message": "Logged out successfully"}
 
@@ -140,3 +157,13 @@ def reset_password_route(
     )
 
     return {"message": "Password reset successful"}
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(
+    current_user=Depends(get_current_user)
+):
+    """
+    Returns the currently authenticated user details.
+    """
+    return current_user

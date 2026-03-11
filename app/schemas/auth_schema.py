@@ -42,3 +42,11 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: EmailStr
+    username: str
+
+    class Config:
+        from_attributes = True
