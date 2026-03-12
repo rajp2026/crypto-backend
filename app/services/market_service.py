@@ -21,7 +21,6 @@ class MarketService:
 
         coins = BinanceMarketParser.parse_coins(exchange_info)
         pairs = BinanceMarketParser.parse_market_pairs(exchange_info)
-        breakpoint()
         coin_map = {}
 
         # Insert coins
