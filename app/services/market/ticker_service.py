@@ -1,11 +1,5 @@
-"""
-Fetch ticker prices from binance
-store them in rediss
-"""
-
 from app.exchanges.binance.binance_client import BinanceClient
 from app.cache.redis_client import redis_client
-import json
 
 
 class TickerService:
@@ -17,12 +11,17 @@ class TickerService:
 
         tickers = await self.client.get_ticker_prices()
 
+        pipe = redis_client.pipeline()
+
         for ticker in tickers:
 
             symbol = ticker["symbol"]
             price = ticker["price"]
 
-            redis_client.set(
-                f"price:{symbol}",
+            pipe.hset(
+                "market:prices",
+                symbol,
                 price
             )
+
+        pipe.execute()

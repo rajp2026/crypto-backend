@@ -1,8 +1,4 @@
 import asyncio
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database.session import SessionLocal
 from app.services.market.market_service import MarketService
