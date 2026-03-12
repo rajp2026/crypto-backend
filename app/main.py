@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.api import auth_routes
+from app.api import market_routes
 
 app = FastAPI()
 
@@ -15,6 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_routes.router)
+app.include_router(market_routes.router)
 
 @app.get('/')
 def home(db: Session = Depends(get_db)):
