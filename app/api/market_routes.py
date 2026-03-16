@@ -41,8 +41,10 @@ async def get_candles(symbol: str, interval: str = "1m", end_time: int | None = 
 
     url = "https://api.binance.com/api/v3/klines"
 
+    binance_symbol = symbol.replace("_", "").replace("-", "").upper()
+
     params = {
-        "symbol": symbol,
+        "symbol": binance_symbol,
         "interval": interval,
         "limit": 1000
     }
@@ -52,6 +54,11 @@ async def get_candles(symbol: str, interval: str = "1m", end_time: int | None = 
     async with httpx.AsyncClient() as client:
         res = await client.get(url, params=params)
         data = res.json()
+        
+    if not isinstance(data, list):
+        # E.g. {"code": -1121, "msg": "Invalid symbol."}
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Binance API Error: {data}")
 
     candles = []
 
