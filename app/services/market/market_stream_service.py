@@ -4,32 +4,37 @@
 
 
 # flow 
-# Binance WS
-#      ↓
-# Market Stream Service
-#      ↓
-# Redis update
-#      ↓
-# WebSocket broadcast
-
+# Binance WebSocket
+#         ↓
+# MarketStreamService
+#         ↓
+# Redis Pub/Sub
+#         ↓
+# FastAPI WebSocket Server
+#         ↓
+# Users
+import asyncio
 import json
 from app.exchanges.binance.binance_ws_client import BinanceWSClient
 from app.services.redis.redis_client import redis_client
-from app.websocket.ws_manager import market_ws_manager
 
-# market_ws_manager = MarketWSManager()
+
 class MarketStreamService:
-    
+
     REDIS_PRICE_KEY = "market:prices"
+    REDIS_STREAM_CHANNEL = "market:stream"
 
     def __init__(self):
         self.client = BinanceWSClient(self.handle_message)
 
-    async def handle_message(self,data):
-        print("Received data from Binance:", len(data))
+    async def handle_message(self, data):
+
         pipe = redis_client.pipeline()
 
+        batch = []
+
         for ticker in data:
+
             symbol = ticker["s"]
             price = ticker["c"]
 
@@ -38,14 +43,25 @@ class MarketStreamService:
                 symbol,
                 price
             )
-            # broadcast to users
-            await market_ws_manager.broadcast({
+
+            batch.append({
                 "symbol": symbol,
                 "price": price
             })
-            print("Broadcasting:", symbol, price)
+
         pipe.execute()
 
+        # publish batch to redis pubsub
+        redis_client.publish(
+            self.REDIS_STREAM_CHANNEL,
+            json.dumps({
+                "type": "market_batch",
+                "data": batch
+            })
+        )
+
     async def start(self):
-        print("starting market stream service....")
+
+        print("Starting Market Stream Service...")
+
         await self.client.connect()

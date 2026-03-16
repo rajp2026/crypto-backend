@@ -7,6 +7,7 @@ from app.api import market_routes
 from app.api.ws_routes import router as ws_router
 from app.services.market.market_stream_service import MarketStreamService
 import asyncio
+from app.services.market.market_pubsub_listener import MarketPubSubListener
 
 app = FastAPI()
 
@@ -28,11 +29,18 @@ def home(db: Session = Depends(get_db)):
         "message": "Welcome to Crypto exchange Platform"
     }
 
+# @app.on_event("startup")
+# async def start_market_stream():
+
+#     print("Starting Market Stream Service...")
+
+#     service = MarketStreamService()
+
+#     asyncio.create_task(service.start())
+
 @app.on_event("startup")
-async def start_market_stream():
+async def start_market_listener():
 
-    print("Starting Market Stream Service...")
+    listener = MarketPubSubListener()
 
-    service = MarketStreamService()
-
-    asyncio.create_task(service.start())
+    asyncio.create_task(listener.start())

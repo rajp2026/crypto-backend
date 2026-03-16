@@ -1,31 +1,45 @@
 # manage user website connections
 # subscribe to symbol
 # broadcast price updatges
-
 from fastapi import WebSocket
-from typing import List
 
 
 class MarketWSManager:
 
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        # websocket → subscribed symbols
+        self.active_connections = {}
 
     async def connect(self, websocket: WebSocket):
-
         await websocket.accept()
-        self.active_connections.append(websocket)
-
+        self.active_connections[websocket] = set()
         print("Client connected:", len(self.active_connections))
 
     def disconnect(self, websocket: WebSocket):
-
-        self.active_connections.remove(websocket)
-
+        if websocket in self.active_connections:
+            del self.active_connections[websocket]
         print("Client disconnected:", len(self.active_connections))
 
-    async def broadcast(self, message: dict):
-        print("Broadcasting to:", len(self.active_connections))
+    def subscribe(self, websocket: WebSocket, symbols):
+        if websocket in self.active_connections:
+            self.active_connections[websocket].update(symbols)
+            print("Subscribed:", symbols)
 
-        for connection in self.active_connections:
-            await connection.send_json(message)
+    async def broadcast(self, batch_message):
+        for websocket, symbols in self.active_connections.items():
+            # if no subscription → send all
+            if not symbols:
+                await websocket.send_json(batch_message)
+                continue
+
+            # filter symbols
+            filtered = [
+                item
+                for item in batch_message["data"]
+                if item["symbol"] in symbols
+            ]
+            if filtered:
+                await websocket.send_json({
+                    "type": "market_batch",
+                    "data": filtered
+                })
