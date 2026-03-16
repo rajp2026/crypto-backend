@@ -37,15 +37,17 @@ def get_ticker(symbol: str):
 
 
 @router.get("/candles/{symbol}")
-async def get_candles(symbol: str):
+async def get_candles(symbol: str, interval: str = "1m", end_time: int | None = None):
 
     url = "https://api.binance.com/api/v3/klines"
 
     params = {
         "symbol": symbol,
-        "interval": "1m",
-        "limit": 500
+        "interval": interval,
+        "limit": 1000
     }
+    if end_time:
+        params['endTime'] =  end_time
 
     async with httpx.AsyncClient() as client:
         res = await client.get(url, params=params)
