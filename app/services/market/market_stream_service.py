@@ -37,6 +37,7 @@ class MarketStreamService:
 
             symbol = ticker["s"]
             price = ticker["c"]
+            change = ticker["P"]
 
             pipe.hset(
                 self.REDIS_PRICE_KEY,
@@ -46,7 +47,8 @@ class MarketStreamService:
 
             batch.append({
                 "symbol": symbol,
-                "price": price
+                "price": price,
+                "change_24h": float(change)
             })
 
         pipe.execute()
