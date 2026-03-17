@@ -59,6 +59,7 @@ class MarketStreamService:
                 "data": batch
             })
         )
+        print(f"Published {len(batch)} price updates to Redis")
 
     async def start(self):
 
