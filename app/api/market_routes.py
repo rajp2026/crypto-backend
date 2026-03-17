@@ -1,34 +1,19 @@
 from fastapi import APIRouter
-from app.cache.redis_client import redis_client
 from app.services.market.market_ticker_service import MarketTickerService
 import httpx
 
 
 router = APIRouter(prefix="/market", tags=["market"])
 
-# @router.get("/tickers/{symbol}")
-# def get_ticker(symbol: str):
-
-#     price = redis_client.hget("market:prices", symbol)
-
-#     return {
-#         "symbol": symbol,
-#         "price": price
-#     }
-
-# @router.get("/tickers")
-# def get_all_tickers():
-
-#     prices = redis_client.hgetall("market:prices")
-
-#     return [
-#         {"symbol": symbol, "price": price}
-#         for symbol, price in prices.items()
-#     ]
 
 @router.get("/tickers")
 def get_all_tickers():
-    return MarketTickerService.get_all_tickers()
+    try:
+        return MarketTickerService.get_all_tickers()
+    except Exception as e:
+        print(f"Error in get_all_tickers: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/ticker/{symbol}")
@@ -56,7 +41,6 @@ async def get_candles(symbol: str, interval: str = "1m", end_time: int | None = 
         data = res.json()
         
     if not isinstance(data, list):
-        # E.g. {"code": -1121, "msg": "Invalid symbol."}
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"Binance API Error: {data}")
 

@@ -16,7 +16,7 @@
 import asyncio
 import json
 from app.exchanges.binance.binance_ws_client import BinanceWSClient
-from app.services.redis.redis_client import redis_client
+from app.cache.redis_client import redis_client
 
 
 class MarketStreamService:

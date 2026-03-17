@@ -5,18 +5,18 @@ from app.database.session import get_db
 from app.api import auth_routes
 from app.api import market_routes
 from app.api.ws_routes import router as ws_router
-from app.services.market.market_stream_service import MarketStreamService
-import asyncio
-from app.services.market.market_pubsub_listener import MarketPubSubListener
 
 app = FastAPI()
 
+# Allow both origin formats (with and without trailing slash just in case)
+# and use generic headers to avoid pre-flight rejection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(auth_routes.router)
@@ -25,22 +25,9 @@ app.include_router(ws_router)
 
 @app.get('/')
 def home(db: Session = Depends(get_db)):
-    return{
+    return {
         "message": "Welcome to Crypto exchange Platform"
     }
 
-# @app.on_event("startup")
-# async def start_market_stream():
-
-#     print("Starting Market Stream Service...")
-
-#     service = MarketStreamService()
-
-#     asyncio.create_task(service.start())
-
-@app.on_event("startup")
-async def start_market_listener():
-
-    listener = MarketPubSubListener()
-
-    asyncio.create_task(listener.start())
+# All market listeners and stream services are now decoupled.
+# WebSocket data is bridged per-connection in app/api/ws_routes.py

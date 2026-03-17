@@ -1,6 +1,3 @@
-# manage user website connections
-# subscribe to symbol
-# broadcast price updatges
 from fastapi import WebSocket
 
 
@@ -26,10 +23,17 @@ class MarketWSManager:
             print("Subscribed:", symbols)
 
     async def broadcast(self, batch_message):
+        """
+        Global broadcast (if needed). 
+        Note: currently we use per-connection listeners in ws_routes.py
+        """
         for websocket, symbols in self.active_connections.items():
             # if no subscription → send all
             if not symbols:
-                await websocket.send_json(batch_message)
+                try:
+                    await websocket.send_json(batch_message)
+                except Exception:
+                    pass
                 continue
 
             # filter symbols
@@ -39,7 +43,10 @@ class MarketWSManager:
                 if item["symbol"] in symbols
             ]
             if filtered:
-                await websocket.send_json({
-                    "type": "market_batch",
-                    "data": filtered
-                })
+                try:
+                    await websocket.send_json({
+                        "type": "market_batch",
+                        "data": filtered
+                    })
+                except Exception:
+                    pass

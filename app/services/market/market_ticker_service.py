@@ -1,5 +1,5 @@
 import json
-from app.services.redis.redis_client import redis_client
+from app.cache.redis_client import redis_client
 
 
 class MarketTickerService:
@@ -37,6 +37,7 @@ class MarketTickerService:
     @classmethod
     def get_ticker(cls, symbol):
 
+        # Sync Redis call
         data = redis_client.hget(cls.REDIS_KEY, symbol)
 
         if not data:
@@ -56,6 +57,7 @@ class MarketTickerService:
     @classmethod
     def get_all_tickers(cls):
 
+        # Sync Redis calls
         tickers = redis_client.hgetall(cls.REDIS_KEY)
         prices = redis_client.hgetall(cls.REDIS_PRICE_KEY)
 

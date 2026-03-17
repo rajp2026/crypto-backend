@@ -1,9 +1,7 @@
 import redis
-import os
-
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+from app.core.config import settings
 
 redis_client = redis.Redis.from_url(
-    REDIS_URL,
+    settings.REDIS_URL,
     decode_responses=True
 )
