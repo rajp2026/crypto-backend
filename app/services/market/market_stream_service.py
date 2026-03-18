@@ -53,7 +53,9 @@ class MarketStreamService:
 
         pipe.execute()
 
-        # publish batch to redis pubsub
+        # Phase 3 Batch Publishing
+        # This sends the entire update array in one Redis message.
+        # It's then picked up by the Singleton Listener on each FastAPI instance.
         redis_client.publish(
             self.REDIS_STREAM_CHANNEL,
             json.dumps({
@@ -61,7 +63,8 @@ class MarketStreamService:
                 "data": batch
             })
         )
-        print(f"Published {len(batch)} price updates to Redis")
+        
+        print(f"Published batch of {len(batch)} updates to {self.REDIS_STREAM_CHANNEL}")
 
     async def start(self):
 

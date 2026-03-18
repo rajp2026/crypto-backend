@@ -6,73 +6,67 @@ from app.cache.redis_client import redis_client
 
 router = APIRouter()
 
-async def redis_listener(websocket: WebSocket):
+# Global task reference for the singleton listener
+_singleton_redis_task = None
+
+async def singleton_redis_listener():
     """
-    Per-connection Redis listener using the synchronous redis-py client.
-    Uses get_message in a non-blocking way with asyncio.sleep.
+    Instance-Level Singleton Listener:
+    Subscribes to the single "market:stream" channel once.
+    Distributes the batch message to the WS manager for local broadcasting.
+    Scales horizontally as each instance handles its own subset of users.
     """
+    print("Starting singleton Redis batch listener...")
     pubsub = redis_client.pubsub(ignore_subscribe_messages=True)
+    print("Subscribed to market:stream for singleton listener.")
     pubsub.subscribe("market:stream")
     
     try:
         while True:
-            # get_message is non-blocking when called without a timeout
+            # get_message is non-blocking with sleep
             message = pubsub.get_message()
             
             if message and message["type"] == "message":
-                data = json.loads(message["data"])
-                
-                # Get current subscriptions for this specific websocket
-                symbols = market_ws_manager.active_connections.get(websocket, set())
-                
-                if symbols:
-                    # Filter symbols
-                    filtered = [
-                        item
-                        for item in data["data"]
-                        if item["symbol"] in symbols
-                    ]
-                    
-                    if filtered:
-                        try:
-                            await websocket.send_json({
-                                "type": "market_batch",
-                                "data": filtered
-                            })
-                        except Exception:
-                            break # Connection probably closed
+                # redis-py with decode_responses=True returns strings, not bytes
+                raw_data = message["data"]
+                try:
+                    batch_data = json.loads(raw_data)
+                    # Broadcaster handles filtering and delivery to local users
+                    await market_ws_manager.broadcast_batch(batch_data)
+                    # Debug log to confirm delivery
+                    # print(f"Routed batch to {len(market_ws_manager.active_connections)} users.")
+                except Exception as ex:
+                    print(f"Error processing Redis message: {ex}")
             
-            # Periodically yield to the event loop
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.01) # Yield to event loop
             
     except Exception as e:
-        print(f"Redis listener error for {id(websocket)}: {e}")
+        print(f"CRITICAL: Singleton Redis listener error: {e}")
     finally:
         pubsub.unsubscribe("market:stream")
         pubsub.close()
+        print("Singleton Redis batch listener stopped.")
 
 @router.websocket("/ws/market")
 async def market_ws(websocket: WebSocket):
+    global _singleton_redis_task
+    
+    # Start the singleton listener IF it's not already running on this instance
+    if _singleton_redis_task is None or _singleton_redis_task.done():
+        _singleton_redis_task = asyncio.create_task(singleton_redis_listener())
+    
     await market_ws_manager.connect(websocket)
     
-    # Start a background task for this specific connection's Redis listener
-    listener_task = asyncio.create_task(redis_listener(websocket))
-
     try:
         while True:
-            # Handle incoming messages (e.g., subscriptions)
+            # Handle incoming messages (subscriptions)
             message = await websocket.receive_json()
             if message.get("type") == "subscribe":
                 symbols = message.get("symbols", [])
-                market_ws_manager.subscribe(websocket, symbols)
-                print(f"Connection {id(websocket)} subscribed to {symbols}")
+                market_ws_manager.set_subscriptions(websocket, symbols)
                 
     except WebSocketDisconnect:
         market_ws_manager.disconnect(websocket)
-    finally:
-        # Cancel the redis listener when client disconnects
-        listener_task.cancel()
-        try:
-            await listener_task
-        except asyncio.CancelledError:
-            pass
+    except Exception as e:
+        print(f"WebSocket error for {id(websocket)}: {e}")
+        market_ws_manager.disconnect(websocket)
