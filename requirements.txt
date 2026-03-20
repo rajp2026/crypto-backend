@@ -5,6 +5,9 @@ asyncpg
 psycopg2
 alembic
 pydantic
+pydantic-settings
 passlib
 python-jose
 redis
+websockets
+httpx

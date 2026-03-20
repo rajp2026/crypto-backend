@@ -1,4 +1,4 @@
-from app.websocket.market_ws_manager import MarketWSManager
+from app.websocket.connection_manager import ConnectionManager
 
-market_ws_manager = MarketWSManager()
-print(f"MarketWSManager initialized at {id(market_ws_manager)}")
+connection_manager = ConnectionManager()
+print(f"ConnectionManager initialized at {id(connection_manager)}")
